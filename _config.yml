@@ -16,10 +16,10 @@
 title: Study Notes | 学习笔记
 description: > # this means to ignore newlines until "baseurl:"
   Meow
-baseurl: "/matjek"
+baseurl: "/blog"
 url: "https://qianhwan.github.io"
 permalink: /:year/:month/:day/:title
-repository: qianhwan/matjek
+repository: qianhwan/blog
 paginate: 5
 
 # MatJek specific configurations
