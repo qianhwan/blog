@@ -5,14 +5,12 @@ date:   2019-08-23 07:15:00 -0400
 categories: speech-recognition
 tags: kaldi asr
 ---
-
-# Understanding kaldi recipes with mini-librispeech example
 This note provides a high-level understanding of how kaldi recipe scripts work, with the hope that people with little experience in shell scripts (like me) can save some time learning kaldi.
 
 Mini-librispeech is a small subset of LibriSpeech corpus which consists of audio book reading speech. We will go through each step in *kaldi/egs/mini_librispeech/s5/run.sh*.
 
 
-## Parameters and environment setup
+### Parameters and environment setup
 ```sh
 # Change this location to somewhere where you want to put the data.
 data=./corpus/
@@ -49,7 +47,7 @@ mkdir -p $data
 `mkdir -p $data` creates the data folder (`./corpus/` in this case) if it doesn't exist already.
 
 
-## Stages
+### Stages
 Each kaldi recipe consists of multiple **stages**, which can be spotted with the following syntax:
 ```sh
 if [ $stage -le x ]; then
@@ -61,20 +59,18 @@ which simply means run the commands in this block if `stage` is less than or equ
 `stage` is set to 0 by default, which means the recipe will run all blocks. If you encounter an error, you can check which stages are successfully passes and re-run the recipe by `./run.sh --stage x`.
 
 
-## Stage 0: data fetching
+### Stage 0: data fetching
 ```sh
 for part in dev-clean-2 train-clean-5; do
   local/download_and_untar.sh $data $data_url $part
 done
 ```
 Download `dev-clean-2` (dev set) and `train-clean-5` (train set) from the url specified before to `./corpus/` and unzip them. You can check the files in `./corpus/` folder after running.
-[screenshot here]
 
 ```sh
 local/download_lm.sh $lm_url $data data/local/lm
 ```
 This line downloads the pre-trained language model to `./corpus/` then makes a soft link to `data/local/lm`.
-[screenshot here]
 
 The files that are downloaded are:
 - *3-gram.arpa.gz*, trigram arpa LM.
@@ -84,7 +80,7 @@ The files that are downloaded are:
 - *librispeech-lexicon.txt*, pronunciations, some of which G2P auto-generated, for all words in the vocabulary.
 
 
-## Stage 1: data preparing and LM training
+### Stage 1: data preparing and LM training
 ```sh
 for part in dev-clean-2 train-clean-5; do
   # use underscore-separated names in data directories.
@@ -147,7 +143,7 @@ utils/build_const_arpa_lm.sh data/local/lm/lm_tglarge.arpa.gz \
 Create ConstArpaLm format language model ( *G.carpa* ) from the full 3-gram arpa LM.
 
 
-## Stage 2: MFCC extraction
+### Stage 2: MFCC extraction
 `mfccdir=mfcc` specifies where to store the extracted MFCCs
 
 ```sh
@@ -166,7 +162,7 @@ utils/subset_data_dir.sh --shortest data/train_clean_5 500 data/train_500short
 Create a data subset of the shortest 500 utterances. We are not copying any MFCC here, if you look into *data/train_500short* you can find a *feat.scp* that maps the utterances to where their MFCCs are stored.
 
 
-## Stage 3: monophone training
+### Stage 3: monophone training
 ```sh
 steps/train_mono.sh --boost-silence 1.25 --nj 5 --cmd "$train_cmd" \
   data/train_500short data/lang_nosp exp/mono
@@ -200,7 +196,7 @@ steps/align_si.sh --boost-silence 1.25 --nj 5 --cmd "$train_cmd" \
 Compute the training alignments using the monophone model.
 
 
-## Stage 4: delta + delta-delta triphone training
+### Stage 4: delta + delta-delta triphone training
 ```sh
 steps/train_deltas.sh --boost-silence 1.25 --cmd "$train_cmd" \
   2000 10000 data/train_clean_5 data/lang_nosp exp/mono_ali_train_clean_5 exp/tri1
@@ -216,7 +212,7 @@ steps/align_si.sh --nj 5 --cmd "$train_cmd" \
 Compute the training alignments using the triphone model.
 
 
-## Stage 5: LDA + MLLT triphone training
+### Stage 5: LDA + MLLT triphone training
 ```sh
 steps/train_lda_mllt.sh --cmd "$train_cmd" \
   --splice-opts "--left-context=3 --right-context=3" 2500 15000 \<Paste>
@@ -231,14 +227,14 @@ steps/align_si.sh  --nj 5 --cmd "$train_cmd" --use-graphs true \
 Again, compute the training alignments using the newly trained triphone model.
 
 
-## Stage 6: LDA + MLLT + SAT triphone training
+### Stage 6: LDA + MLLT + SAT triphone training
 ```sh
 steps/train_sat.sh --cmd "$train_cmd" 2500 15000 \
   data/train_clean_5 data/lang_nosp exp/tri2b_ali_train_clean_5 exp/tri3b
 ```
 Train a triphone model with Speaker Adaptation Training, using the training alignments generated in **Stage 5**.
 
-## Stage 7: re-create language model and compute the alignments from SAT model
+### Stage 7: re-create language model and compute the alignments from SAT model
 ```sh
 steps/get_prons.sh --cmd "$train_cmd" \
   data/train_clean_5 data/lang_nosp exp/tri3b
@@ -276,7 +272,7 @@ steps/align_fmllr.sh --nj 5 --cmd "$train_cmd" \
 Compute the training alignments using the SAT model and new *L.fst*.
 
 
-## Stage 8: generating graphs and decoding
+### Stage 8: generating graphs and decoding
 ```sh
 utils/mkgraph.sh data/lang_test_tgsmall \
   exp/tri3b exp/tri3b/graph_tgsmall
@@ -305,5 +301,7 @@ Re-score decoded lattice ( *exp/tri3b/decode_tgmed_dev_clean_2* ) with large Con
 
 You can see the WER improvements from *exp/mono/decode_nosp_tgsmall_dev_clean_2* to *exp/tri3b/decode_tglarge_dev_clean_2*
 
-## Stage 9: DNN training
+### Stage 9: DNN training
 I'll leave this to another note.
+
+Thank you for reading through :)!
